@@ -4,15 +4,22 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 function sendBrowsingData(data) {
-  fetch("http://127.0.0.1:8000/api/log_browsing/", {
+  fetch("http://127.0.0.1:8000/api/log_browsing_data/", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    credentials: "include",
     body: JSON.stringify(data)
   })
-  .then(res => res.json())
-  .then(response => console.log("✅ Log sent:", response))
-  .catch(err => console.error("❌ Error sending log:", err));
+    .then(async res => {
+      const text = await res.text();
+      console.log("Raw response:", text);
+      try {
+        const json = JSON.parse(text);
+        console.log("✅ Log sent:", json);
+      } catch {
+        console.error("❌ Response was not JSON:", text);
+      }
+    })
+    .catch(err => console.error("❌ Error sending log:", err));
 }
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {

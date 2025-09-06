@@ -3,19 +3,35 @@
   "name": "SafeWebGuard Monitor",
   "version": "1.0",
   "description": "Logs browsing behavior to Django backend.",
-  "permissions": ["tabs", "scripting", "storage"],
-  "host_permissions": ["<all_urls>"],
+
+  "permissions": [
+    "tabs",
+    "scripting",
+    "storage"
+  ],
+
+  "host_permissions": [
+    "http://127.0.0.1:8000/*",
+    "<all_urls>"
+  ],
+
+  "background": {
+    "service_worker": "background.js"
+  },
+
   "action": {
     "default_popup": "popup.html",
     "default_icon": "icons/icon128.png"
   },
+
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": ["https://*/*", "http://*/*"],
       "js": ["content.js"],
       "run_at": "document_idle"
     }
   ],
+
   "icons": {
     "128": "icons/icon128.png"
   }

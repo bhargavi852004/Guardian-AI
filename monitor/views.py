@@ -1,15 +1,8 @@
-import json
-import logging
 import re
 from datetime import datetime, time
-from io import BytesIO
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
 import json
 import logging
-from .models import ParentUser
 import requests
-from PIL import Image
 from django.contrib import messages
 from django.contrib.auth import logout
 from django.contrib.auth.hashers import check_password
@@ -111,7 +104,7 @@ def select_child(request):
 
 def set_child(request):
     if request.method == 'POST':
-        selected = request.POST.get("child_email")  # ✅ Corrected key name
+        selected = request.POST.get("child_email")
         request.session["child_email"] = selected
         return redirect("dashboard")
     return redirect('select_child')
@@ -177,6 +170,9 @@ def view_alerts(request):
 
 # ------------------------ Browsing Log API ------------------------
 import traceback
+from django.utils.timezone import now
+from datetime import timedelta
+
 @csrf_exempt
 def log_browsing_data(request):
     if request.method != 'POST':
@@ -195,20 +191,74 @@ def log_browsing_data(request):
         url = data["url"]
         child_email = data["child_email"]
         hour = data["hour_of_day"]
+        duration_sec = data["duration_sec"]
+        normalized_url = normalize_youtube_url(url)
+        MIN_DURATION_UPDATE_WINDOW = 3600  # seconds
+        MIN_TOTAL_DURATION_FOR_NEW_LOG = 60  # seconds
 
-        if is_duplicate_log(child_email, url):
-            logger.info(f"Duplicate log detected for {url}")
-            return JsonResponse({"status": "duplicate log detected"}, status=200)
+        existing_log = BrowsingLog.objects.filter(
+            child_email=child_email,
+            url=normalized_url,
+            timestamp__gte=now() - timedelta(minutes=30)
+        ).order_by('-timestamp').first()
+
+        if existing_log:
+            if duration_sec < MIN_DURATION_UPDATE_WINDOW:
+                # Ignore very short intervals to reduce noise
+                logger.info(f"Ignoring very short duration log for {normalized_url}")
+                return JsonResponse({"status": "ignored short duration log"}, status=200)
+
+            existing_log.duration_sec += duration_sec
+            existing_log.timestamp = now()
+            existing_log.save()
+
+            # If after update total duration is still under threshold, don't analyze again
+            if existing_log.duration_sec < MIN_TOTAL_DURATION_FOR_NEW_LOG:
+                logger.info(f"♻️ Updated existing log (total {existing_log.duration_sec}s), skipping re-analysis")
+                return JsonResponse({"status": "updated existing log"}, status=200)
+
+        # Skip homepage URLs
+        HOMEPAGE_DOMAINS_TO_SKIP = [
+            "https://www.youtube.com/",
+            "https://youtube.com/",
+            "https://www.google.com/",
+            "https://google.com/",
+            "https://www.facebook.com/",
+            "https://facebook.com/",
+            "https://www.instagram.com/",
+            "https://instagram.com/",
+            "https://www.twitter.com/",
+            "https://twitter.com/",
+            "https://chatgpt.com/",
+        ]
+
+        if any(url.rstrip('/') == domain.rstrip('/') for domain in HOMEPAGE_DOMAINS_TO_SKIP):
+            logger.info(f"Skipping homepage URL: {url}")
+            return JsonResponse({"status": "skipped homepage url"}, status=200)
 
         if "youtube.com" in url or "youtu.be" in url:
-            data["image_score"] = fetch_and_analyze_thumbnail(url) or data["image_score"]
+            video_id = get_youtube_video_id(url)
+            if not video_id:
+                logger.info(f"Skipping non-video YouTube URL: {url}")
+                return JsonResponse({"status": "skipped non-video youtube url"}, status=200)
 
-        nsfw_score = get_nsfw_score(url)
+        if "google.com" in url and "/search" not in url:
+            logger.info(f"Skipping non-search Google URL: {url}")
+            return JsonResponse({"status": "skipped non-search google url"}, status=200)
 
-        input_data = {"query": query, "url": url, "hour": hour}
-        # ✅ Correct: use returned dictionary
+        # Fresh analysis
+        image_score = 0.0
+        if "youtube.com" in url or "youtu.be" in url:
+            image_score = fetch_and_analyze_thumbnail(url) or data.get("image_score", 0.0)
+        else:
+            if os.path.exists(url):
+                image_score = get_nsfw_score(url)
+            else:
+                logger.info(f"Skipping NSFW check for non-local non-YouTube URL: {url}")
+
+        input_data = {"query": query, "url": normalized_url, "hour": hour}
         result = predict_behavior(input_data)
-        logger.info(f"🧪 Predict result: {result} ({type(result)})")
+        logger.info(f" Predict result: {result} ({type(result)})")
 
         label = result.get("verdict", "safe")
         reason = result.get("reason", "")
@@ -223,13 +273,20 @@ def log_browsing_data(request):
         if not parent:
             return JsonResponse({"error": "No parent found for this child"}, status=404)
 
+        if label == "safe" and image_score >= 0.7:
+            logger.info("LLM verdict is safe, but NSFW score high. Respecting LLM verdict.")
+            summary += f" (NSFW score: {image_score})"
+        elif label in ["risky", "partial_risky"] and image_score >= 0.7:
+            reason = "NSFW thumbnail detected"
+            summary += f"\nThumbnail NSFW score: {image_score}"
+
         log = BrowsingLog.objects.create(
             child_email=child_email,
             parent_email=parent.email,
             title=data["title"],
-            url=url,
-            query=query,
-            duration_sec=data["duration_sec"],
+            url=normalized_url,
+            query=query if image_score < 0.7 else "Thumbnail detected as inappropriate",
+            duration_sec=duration_sec,
             is_night_time=hour >= 22 or hour <= 6,
             label=label,
             reason=reason,
@@ -238,7 +295,7 @@ def log_browsing_data(request):
         )
 
         if label == "risky" and not log.email_sent:
-            send_parent_alert(log)
+            send_parent_alert(log, nsfw_thumbnail_score=image_score if image_score >= 0.7 else None)
             log.email_sent = True
             log.save()
 
@@ -264,53 +321,93 @@ def validate_child_email(request):
             logger.warning("Child email missing from request")
             return JsonResponse({"error": "Email field is required"}, status=400)
 
-        logger.info(f"🔍 Validating child email: {email}")
+        logger.info(f" Validating child email: {email}")
 
-        # ✅ Manual lookup to bypass unsupported __contains
+        # Manual lookup to bypass unsupported __contains
         all_parents = ParentUser.objects.all()
         for parent in all_parents:
             if email in parent.children:
-                logger.info(f"✅ Child email {email} found under parent {parent.email}")
+                logger.info(f" Child email {email} found under parent {parent.email}")
                 return JsonResponse({"valid": True, "parent_email": parent.email})
 
-        logger.warning(f"❌ Child email {email} not found")
+        logger.warning(f" Child email {email} not found")
         return JsonResponse({"valid": False}, status=404)
 
     except Exception as e:
-        logger.exception("❌ Internal Server Error during child email validation")
+        logger.exception(" Internal Server Error during child email validation")
         return JsonResponse({"error": str(e)}, status=500)
 
 
 # ------------------------ Helpers ------------------------
 from django.utils.timezone import now
 
+def normalize_youtube_url(url):
+    video_id = get_youtube_video_id(url)
+    if video_id:
+        return f"https://www.youtube.com/watch?v={video_id}"
+    return url
+
 def is_duplicate_log(email, url):
-    now_time = now()  # ✅ Properly call the function
+    normalized_url = normalize_youtube_url(url)
+
+    now_time = now()
     start_of_day = datetime.combine(now_time.date(), time.min)
     end_of_day = datetime.combine(now_time.date(), time.max)
+
     return BrowsingLog.objects.filter(
         child_email=email,
-        url=url,
+        url=normalized_url,
         timestamp__gte=start_of_day,
         timestamp__lt=end_of_day
     ).first()
 
 def get_youtube_video_id(url):
-    match = re.search(r'(?:youtube\.com/watch\?v=|youtu\.be/)([a-zA-Z0-9_-]{11})', url)
-    return match.group(1) if match else None
+    patterns = [
+        r'youtube\.com/watch\?v=([a-zA-Z0-9_-]{11})',
+        r'youtu\.be/([a-zA-Z0-9_-]{11})',
+        r'youtube\.com/shorts/([a-zA-Z0-9_-]{11})'
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, url)
+        if match:
+            return match.group(1)
+    return None
+
+import tempfile
+import os
+
+import os
+from django.conf import settings
 
 def fetch_and_analyze_thumbnail(video_url):
     video_id = get_youtube_video_id(video_url)
     if not video_id:
+        logger.warning(f"Could not extract video ID from URL: {video_url}")
         return None
 
-    thumbnail_url = f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg"
-    response = requests.get(thumbnail_url)
-    if response.status_code == 200:
-        img = Image.open(BytesIO(response.content))
-        return analyze_image(img)
+    thumbnails_dir = os.path.join(settings.BASE_DIR, "data", "thumbnails")
+    os.makedirs(thumbnails_dir, exist_ok=True)
+
+    for quality in ['maxresdefault', 'hqdefault', 'mqdefault', 'default']:
+        thumbnail_url = f"https://img.youtube.com/vi/{video_id}/{quality}.jpg"
+        response = requests.get(thumbnail_url)
+
+        if response.status_code == 200:
+            try:
+                thumbnail_path = os.path.join(thumbnails_dir, f"{video_id}_{quality}.jpg")
+                with open(thumbnail_path, "wb") as f:
+                    f.write(response.content)
+
+                score = get_nsfw_score(thumbnail_path)
+                logger.info(f" NSFW score for {video_id} at {quality}: {score}")
+                return score
+
+            except Exception as e:
+                logger.error(f" Error analyzing thumbnail for {video_id}: {e}")
+                return None
+        else:
+            logger.info(f"Thumbnail not found at {thumbnail_url}")
+
+    logger.warning(f"No thumbnail available for video ID {video_id}")
     return None
 
-def analyze_image(img):
-    # 🔧 Placeholder — replace with real model or heuristic
-    return 0.5

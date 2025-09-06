@@ -12,6 +12,6 @@ urlpatterns = [
     path('switch_child/', views.switch_child, name='switch_child'),
     path('dashboard/', views.dashboard, name='dashboard'),
     path('alerts/', views.view_alerts, name='view_alerts'),
-    path('api/log_browsing/', views.log_browsing_data, name='log_browsing'),
+    path('api/log_browsing_data/', views.log_browsing_data, name='log_browsing_data'),
     path('api/validate_child_email/', views.validate_child_email, name='validate_child_email'),
 ]

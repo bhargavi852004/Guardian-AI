@@ -37,7 +37,7 @@ Label the content as one of the following:
 - safe (educational or non-problematic content)
 
 Rules:
-- If the query or website is about education, learning, academics, tutorials, or study-related topics, it is always considered safe — regardless of time.
+- If the query or website is about education, learning, academics, tutorials, study-related topics, politics, current affairs, or technology, it is always considered safe — regardless of time, context, or other factors.
 - If the query or content is related to entertainment, games, or non-educational topics and accessed late (after 22:00), mark it as partial_risky.
 - Mark as risky only if the intent is harmful (e.g., sexual, suicidal, violent).
 

@@ -6,9 +6,11 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def send_parent_alert(log):
+
+def send_parent_alert(log, nsfw_thumbnail_score=None):
     """
     Sends an alert email to the parent when risky content is detected.
+    If nsfw_thumbnail_score is provided, includes it in the email.
     """
 
     if log.label.lower() != "risky":
@@ -19,10 +21,12 @@ def send_parent_alert(log):
     password = settings.EMAIL_HOST_PASSWORD
 
     if not receiver_email:
-        logger.error("❌ Cannot send alert: Parent email is None.")
+        logger.error(" Cannot send alert: Parent email is None.")
         return
 
-    subject = f"⚠️ Risky Activity Detected: {log.title}"
+    subject = f"⚠ Risky Activity Detected: {log.title}"
+
+    # Base email body
     body = f"""
 🚨 A risky website interaction has been detected for your child:
 
@@ -32,7 +36,16 @@ def send_parent_alert(log):
 🧠 Verdict: {log.label.upper()} — {log.reason}
 📝 Summary:
 {log.summary}
+    """
 
+    # ✅ Only add thumbnail risk info if provided
+    if nsfw_thumbnail_score is not None and nsfw_thumbnail_score >= 0.7:
+        if log.label.lower() == "safe":
+            logger.info("✅ Skipping alert: NSFW score high but LLM verdict is safe.")
+            return
+        body += f"\n⚠️ Thumbnail NSFW Risk Score: {nsfw_thumbnail_score} (Above safety threshold!)"
+
+    body += """
 Please review their activity on the SafeScope dashboard.
 
 Stay alert. Stay safe.  
