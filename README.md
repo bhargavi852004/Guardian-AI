@@ -1,31 +1,46 @@
-# Safe Scope: An Intelligent Online Behaviour Tracker
+# GuardianAI : An Intelligent Real-Time Digital Safety Platform
 
-Safe Scope is a professional-grade web application designed for parents to monitor their children's online activity in real time. It integrates a Django backend, a Chrome extension, and MongoDB to provide risk-aware browsing logs and intuitive dashboards.
+**GuardianAI** is a **startup-grade, real-time AI platform** designed for parents, schools, and enterprises to monitor online activity and protect users from harmful content. It combines **LLM-powered contextual reasoning, prompt-engineered moderation, age-aware evaluation, and explainable alerts** across multiple languages.  
 
+---
 
 ## Key Features
 
-* **Parental Authentication System**
-  Register, log in, and manage multiple children under one account securely.
+* **Parental Authentication System**  
+  Register, log in, and securely manage multiple children under one account.
 
-* **Multi-Child Management**
-  Parents can monitor multiple children. Each child's browsing logs are shown separately.
+* **Multi-Child Management**  
+  Parents can monitor multiple children, each with separate activity logs.
 
-* **Real-Time Browsing Activity Logging**
-  Chrome extension captures website titles, URLs, timestamps, and risk scores.
+* **Real-Time Browsing Activity Logging**  
+  Chrome extension captures page titles, URLs, timestamps, and risk assessments.
 
-* **Risk Prediction**
+* **Hybrid Risk Detection Engine**  
+  - Layer 1: Fast keyword and lightweight ML filtering  
+  - Layer 2: LLM-based contextual reasoning for risk categorization  
+  - Layer 3: Age-aware evaluation to ensure developmental appropriateness  
+  - Outputs structured JSON: category, risk level, confidence score
 
-  * Uses LLMs to analyze browsing queries and website content.
-  * Supports NSFW detection via Deep Learning Model in the form of ONNX.
+* **Explainability Agent**  
+  - Generates **human-readable explanations** for flagged content  
+  - Example: *“This page was blocked because it contains implicit sexual references unsafe for minors.”*
 
-* **Modern Dashboard**
-  Professional-looking, responsive dashboard showing browsing history, safe/risky counts, and filtering options.
+* **Multi-Language Support**  
+  - Detects content in English, Hindi, Telugu, Hinglish, and more  
+  - Translates and analyzes for consistent risk scoring
 
-* **MongoDB Backend**
-  Stores browsing logs, user accounts, and child information securely.
+* **Modern Admin Dashboard**  
+  - Live alerts, risk trends, category & language analytics  
+  - Displays explanations for flagged content  
+  - Built with React, Chart.js, and Django backend
+
+* **Privacy and Compliance**  
+  - Anonymized browsing logs  
+  - Encrypted storage in MongoDB  
+  - Consent warnings for parents
 
 ---
+
 
 ## 📁 Project Structure
 
@@ -38,6 +53,8 @@ safeweb/
 │   ├── static/
 │   ├── templates/
 │   ├── utils/
+│   │   ├── risk_engine.py ← Hybrid + age-aware risk scoring
+│   │   ├── explainability_agent.py← LLM explanations
 │   │   ├── alert_engine.py
 │   │   ├── data_preprocessor.py
 │   │   ├── nsfw_detector.py
@@ -100,8 +117,9 @@ python manage.py runserver
 ## 🔄 System Flow Diagram
 
 ```
-Parent → Register → Login → Select Child → Dashboard
-Child → Browsing Activity → Chrome Extension → Django Backend → MongoDB → Dashboard
+Child Browsing → Chrome Extension → Content Ingestion Layer → Risk Engine (Keyword + ML + LLM)
+→ Explainability Agent → MongoDB Storage → Admin Dashboard → Real-Time Alerts / Analytics
+
 ```
 
 ---
