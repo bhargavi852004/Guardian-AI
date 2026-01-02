@@ -143,12 +143,12 @@ Child Browsing → Chrome Extension → Content Ingestion Layer → Risk Engine 
 ---
 
 ## 📄 Screenshots
-<img width="1919" height="1018" alt="Register - Page" src="https://github.com/user-attachments/assets/ed1a2dde-d2be-44cb-9bdb-e0fb281c4d34" />
-<img width="1905" height="1028" alt="Login - Page" src="https://github.com/user-attachments/assets/5ed91d12-7c6d-4f7a-aab0-e53ce90a078f" />
-<img width="1916" height="1010" alt="Select Child" src="https://github.com/user-attachments/assets/b8bbd5c8-d34d-4823-a9e9-117767589d41" />
+<img width="1919" height="986" alt="Register-page" src="https://github.com/user-attachments/assets/ead3e015-4657-4752-a209-59a599ce9c6c" />
+<img width="1831" height="964" alt="Login - Page" src="https://github.com/user-attachments/assets/e6fd1ad4-4ae0-4dcb-a2d1-3328ecab4984" />
+<img width="1795" height="919" alt="select - child" src="https://github.com/user-attachments/assets/f7f8a3e8-5139-4efc-876a-efd1132e451a" />
 <img width="616" height="474" alt="Chrome Extension" src="https://github.com/user-attachments/assets/a2c1c9ea-a06e-427e-b637-806e0339a8f6" />
-<img width="1899" height="1018" alt="Dashboard - Content" src="https://github.com/user-attachments/assets/c8701568-4611-4c34-af0c-379f87ccde2d" />
-<img width="1918" height="1000" alt="Dashboard of New User" src="https://github.com/user-attachments/assets/ab816eae-a8a9-4d10-af1f-dca16171f436" />
+<img width="1884" height="972" alt="dashboard of user" src="https://github.com/user-attachments/assets/b9550e30-0a66-4392-add1-30a8936cea76" />
+<img width="1833" height="874" alt="Dashboard of New User" src="https://github.com/user-attachments/assets/cbf69b17-6a96-49c9-92af-cbc2571b3d4c" />
 <img width="1479" height="726" alt="Parent Alert Through Gmail" src="https://github.com/user-attachments/assets/b022787a-2e69-4e59-b45e-62ec072607ba" />
 
 
